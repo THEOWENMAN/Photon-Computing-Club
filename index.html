@@ -121,7 +121,8 @@ main{position:relative;z-index:1}
 .rail i{position:absolute;left:-3px;top:0;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 12px #fff}
 
 /* ========== PRISM TRANSITION ========== */
-.prismsec{height:230vh;position:relative;background:var(--void);z-index:1}
+.prismsec{height:230vh;position:relative;z-index:2;pointer-events:none}
+.prismsec + .statement{margin-top:-140vh;padding-top:calc(180px + 40vh);position:relative;z-index:1}
 .pstick{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
 #prismc{position:absolute;inset:0;width:100%;height:100%;display:block}
 .prism-cap{position:absolute;left:0;right:0;top:calc(50% + min(15vw,15vh));text-align:center;margin:0;font-weight:600;font-size:clamp(30px,4.4vw,64px);line-height:1;letter-spacing:-.045em;opacity:0;padding:0 24px}
@@ -956,9 +957,9 @@ const PrismFX=(()=>{
     [[16,.08],[5,.3],[1.6,.95]].forEach(([w,a])=>{ctx.strokeStyle=`rgba(${c},${a*I})`;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()});
   }
   function draw(p){
-    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#04050B';ctx.fillRect(0,0,W,H);
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);if(p>=.999)return;ctx.fillStyle='#04050B';ctx.fillRect(0,0,W,H);
     const cx=W/2,cy=H/2,R=Math.min(W,H)*.11,len=Math.hypot(W,H);
-    const a1=clamp(p/.26),a2=clamp((p-.24)/.3),a3=clamp((p-.5)/.28),a4=clamp((p-.74)/.26);
+    const a1=clamp(p/.26),a2=clamp((p-.22)/.28),a3=clamp((p-.46)/.24),a4=clamp((p-.68)/.32);
     // prism
     const pts=[0,1,2].map(k=>{const t=-Math.PI/2+k*2*Math.PI/3;return[cx+R*Math.cos(t),cy+R*.15+R*Math.sin(t)]});
     ctx.globalAlpha=clamp(p/.12);ctx.beginPath();pts.forEach((v,i)=>ctx[i?'lineTo':'moveTo'](...v));ctx.closePath();
@@ -976,11 +977,17 @@ const PrismFX=(()=>{
     }
     ctx.globalCompositeOperation='source-over';
     if(a4>0){
-      // the light floods the screen and settles into the page's white
-      const r=ease(a4)*len*1.1+1,g2=ctx.createRadialGradient(cx,cy,0,cx,cy,r);g2.addColorStop(0,'#FFFFFF');g2.addColorStop(.55,'#F1F2F5');g2.addColorStop(.86,'#F1F2F5');g2.addColorStop(.93,'rgba(255,255,255,.55)');g2.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g2;ctx.fillRect(0,0,W,H);
-      if(a4>.96){ctx.fillRect(0,0,W,H)}
+      // a rainbow band sweeps right to left and uncovers the page underneath
+      const bw=Math.max(W*.42,260),edge=W-ease(a4)*(W+bw);
+      ctx.clearRect(Math.max(0,edge+bw),0,W,H);
+      const g=ctx.createLinearGradient(edge,0,edge+bw,0);
+      SPECTRUM.slice().reverse().forEach((l,i,arr)=>g.addColorStop(i/(arr.length-1),`rgb(${lamRGB(l)})`));
+      ctx.fillStyle=g;ctx.fillRect(edge,0,bw,H);
+      // soft leading edge of light
+      const lg=ctx.createLinearGradient(edge-60,0,edge+20,0);lg.addColorStop(0,'rgba(255,255,255,0)');lg.addColorStop(1,'rgba(255,255,255,.85)');
+      ctx.fillStyle=lg;ctx.fillRect(edge-60,0,80,H);
     }
-    cap.style.opacity=clamp((p-.3)/.12)*(1-clamp((p-.66)/.1));
+    cap.style.opacity=clamp((p-.28)/.12)*(1-clamp((p-.62)/.1));
     cap.style.color='#EDEFF5';
   }
   return function(){
@@ -1000,7 +1007,8 @@ function tick(now){
   // header
   const y=scrollY;if(y>lastY+4&&y>innerHeight*.5)header.classList.add('hide');else if(y<lastY-4||y<innerHeight*.5)header.classList.remove('hide');lastY=y;
   header.classList.toggle('solid',y>40);
-  const onLight=lightSecs.some(s=>{const r=s.getBoundingClientRect();return r.top<40&&r.bottom>40});header.classList.toggle('onlight',onLight);
+  const prR=document.getElementById('prismsec').getBoundingClientRect(),prismCover=prR.top<=0&&prR.bottom>innerHeight+2;
+  const onLight=!prismCover&&lightSecs.some(s=>{const r=s.getBoundingClientRect();return r.top<40&&r.bottom>40});header.classList.toggle('onlight',onLight);
   // journey progress
   const jr=journey.getBoundingClientRect(),jlen=jr.height-innerHeight;
   const raw=clamp(-jr.top/jlen);jp+=(raw-jp)*(reduced?1:.16);
