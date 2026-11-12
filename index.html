@@ -108,7 +108,7 @@ main{position:relative;z-index:1}
 .journey{height:560vh;position:relative}
 .journey .stick{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
 .cap::before{content:"";position:absolute;left:50%;top:50%;width:min(900px,120vw);height:160%;transform:translate(-50%,-50%);background:radial-gradient(closest-side,rgba(4,5,11,.72),rgba(4,5,11,0));z-index:-1}
-.cap{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;padding:0 24px;opacity:0;pointer-events:none}
+.cap{will-change:opacity,transform;position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;padding:0 24px;opacity:0;pointer-events:none}
 .cap h2{font-weight:600;font-size:clamp(38px,6.4vw,96px);line-height:.95;letter-spacing:-.05em;margin:0 auto 18px;max-width:14ch;text-shadow:0 4px 40px rgba(0,0,0,.6)}
 .cap p{margin:0 auto;max-width:40ch;font-size:clamp(16px,1.6vw,20px);color:#C9CDDA;text-shadow:0 2px 20px rgba(0,0,0,.8)}
 .cap .k{font-family:var(--mono);font-size:12px;color:var(--dim);display:block;margin-bottom:18px}
@@ -118,7 +118,7 @@ main{position:relative;z-index:1}
 .jplay svg{width:14px;height:14px}
 .jstep b{display:block;width:120px;height:2px;background:rgba(255,255,255,.18);border-radius:2px;overflow:hidden}
 .jstep i{display:block;height:100%;width:0;background:var(--spectrum)}
-.rail i{position:absolute;left:-3px;top:0;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 12px #fff}
+.rail i{position:absolute;left:-3px;top:0;will-change:transform;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 12px #fff}
 
 /* ========== PRISM TRANSITION ========== */
 .prismsec{height:230vh;position:relative;z-index:2;pointer-events:none}
@@ -844,16 +844,20 @@ const Smooth=(()=>{
     Tour.stop();
     if(reduced||!fine)return;
     if(Math.abs(e.deltaX)>Math.abs(e.deltaY))return;
+    // trackpads already scroll smoothly; only ease chunky mouse-wheel steps
+    if(e.deltaMode===0&&(!Number.isInteger(e.deltaY)||Math.abs(e.deltaY)<40)){active=false;return}
     e.preventDefault();
     if(!active){cur=target=scrollY}
     const d=e.deltaY*(e.deltaMode===1?36:e.deltaMode===2?innerHeight:1);
     target=clamp(target+d,0,maxY());active=true;
   },{passive:false});
-  addEventListener('scroll',()=>{if(!active||Math.abs(scrollY-Math.round(cur))>3){active=false;cur=target=scrollY}});
+  addEventListener('scroll',()=>{if(!active||Math.abs(scrollY-cur)>3){active=false;cur=target=scrollY}},{passive:true});
   addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(e.key)&&!blocked()){active=false;Tour.stop()}});
   addEventListener('touchstart',()=>{active=false;Tour.stop()},{passive:true});
-  (function step(){
-    if(active){cur+=(target-cur)*.085;if(Math.abs(target-cur)<.4){cur=target;active=false}scrollTo(0,cur)}
+  let last=performance.now();
+  (function step(now){
+    const dt=Math.min(.05,((now||last)-last)/1000);last=now||last;
+    if(active){cur+=(target-cur)*(1-Math.exp(-dt*9));if(Math.abs(target-cur)<.5){cur=target;active=false}scrollTo(0,Math.round(cur*2)/2)}
     requestAnimationFrame(step);
   })();
   return{to(y){if(reduced){scrollTo(0,y);return}Tour.stop();if(Snap.busy)return;cur=scrollY;target=clamp(y,0,maxY());active=true},stop(){active=false}};
@@ -983,9 +987,9 @@ const PrismFX=(()=>{
       ctx.fillStyle=lg;ctx.fillRect(edge-60,0,80,H);
     }
   }
-  return function(){
-    const r=sec.getBoundingClientRect();if(r.bottom<0||r.top>innerHeight)return;
-    const raw=clamp(-r.top/(r.height-innerHeight));pp+=(raw-pp)*(reduced?1:.25);if(Math.abs(raw-pp)<.001)pp=raw;
+  return function(top,h){
+    if(top+h<0||top>innerHeight)return;
+    const raw=clamp(-top/(h-innerHeight));pp+=(raw-pp)*(reduced?1:.25);if(Math.abs(raw-pp)<.001)pp=raw;
     draw(pp);
   };
 })();
@@ -993,29 +997,40 @@ const PrismFX=(()=>{
 /* in-page links glide too */
 document.addEventListener('click',e=>{const a=e.target.closest('a[href^="#"]');if(!a)return;const id=a.getAttribute('href');if(id.length<2)return;
   const t=document.querySelector(id);if(!t)return;e.preventDefault();Smooth.to(t.getBoundingClientRect().top+scrollY)});
+/* layout is measured once (and on resize), not every frame, so scrolling never forces a re-layout */
+const L={j:{top:0,h:1},hs:{top:0,h:1},pr:{top:0,h:1},light:[]};
+const prismEl=document.getElementById('prismsec');
+function measure(){const Y=scrollY,r=e=>{const b=e.getBoundingClientRect();return{top:b.top+Y,h:b.height}};
+  L.j=r(journey);L.hs=r(hs);L.pr=r(prismEl);L.light=lightSecs.map(r)}
+measure();addEventListener('resize',measure);new ResizeObserver(()=>measure()).observe(document.body);
+const lastW={};function setOnce(el,k,v,key){const id=key||k;if(lastW[id]===v)return;lastW[id]=v;el.style[k]=v}
+let lastStepTxt='',lastHint='';
 function tick(now){
-  sy+=(scrollY-sy)*(reduced?1:.12);
+  const y=scrollY,vh=innerHeight;
   rx+=(mx-rx)*.18;ry+=(my-ry)*.18;
   cur.style.transform=`translate(${mx}px,${my}px)`;ring.style.transform=`translate(${rx}px,${ry}px)`;
   // header
-  const y=scrollY;if(y>lastY+4&&y>innerHeight*.5)header.classList.add('hide');else if(y<lastY-4||y<innerHeight*.5)header.classList.remove('hide');lastY=y;
+  if(y>lastY+4&&y>vh*.5)header.classList.add('hide');else if(y<lastY-4||y<vh*.5)header.classList.remove('hide');lastY=y;
   header.classList.toggle('solid',y>40);
-  const prR=document.getElementById('prismsec').getBoundingClientRect(),prismCover=prR.top<=0&&prR.bottom>innerHeight+2;
-  const onLight=!prismCover&&lightSecs.some(s=>{const r=s.getBoundingClientRect();return r.top<40&&r.bottom>40});header.classList.toggle('onlight',onLight);
+  const prTop=L.pr.top-y,prismCover=prTop<=0&&prTop+L.pr.h>vh+2;
+  const onLight=!prismCover&&L.light.some(s=>s.top-y<40&&s.top-y+s.h>40);header.classList.toggle('onlight',onLight);
   // journey progress
-  const jr=journey.getBoundingClientRect(),jlen=jr.height-innerHeight;
-  const raw=clamp(-jr.top/jlen);jp+=(raw-jp)*(reduced?1:.16);
-  caps.forEach((c,i)=>{const n=caps.length,center=(i+.5)/n;let d=(jp-center)*n;if(i===n-1&&d>0)d=0;if(i===0&&d<0&&raw>0)d=0;const o=clamp(1-Math.abs(d)*1.6);
-    c.style.opacity=o;c.style.transform=`translateY(calc(-50% + ${d*-40}px))`});
-  railDot.style.top=(jp*173)+'px';
-  const step=Math.min(5,Math.floor(jp*5)+1);jstepTxt.textContent=`Step ${step} of 5`;jbar.style.width=(jp*100)+'%';
-  jstepHint.textContent=Tour.on?'Playing. Scroll anytime to take over':jp>.96?'Scroll once more':'Scroll for the next step';jstepEl.style.opacity=(raw>0&&raw<1)?1:0;jstepEl.style.pointerEvents=(raw>0&&raw<1)?'auto':'none';
+  const jTop=L.j.top-y,jlen=L.j.h-vh,raw=clamp(-jTop/jlen),inJ=jTop<vh&&jTop+L.j.h>0;
+  jp+=(raw-jp)*(reduced?1:.2);if(Math.abs(raw-jp)<.0004)jp=raw;
+  if(inJ){
+    caps.forEach((c,i)=>{const n=caps.length,center=(i+.5)/n;let d=(jp-center)*n;if(i===n-1&&d>0)d=0;if(i===0&&d<0&&raw>0)d=0;
+      const o=clamp(1-Math.abs(d)*1.6);setOnce(c,'opacity',o.toFixed(3),'co'+i);setOnce(c,'transform',`translate3d(0,calc(-50% + ${(d*-40).toFixed(1)}px),0)`,'ct'+i)});
+    railDot.style.transform=`translateY(${(jp*173).toFixed(1)}px)`;jbar.style.width=(jp*100).toFixed(2)+'%';
+    const st=`Step ${Math.min(5,Math.floor(jp*5)+1)} of 5`;if(st!==lastStepTxt){lastStepTxt=st;jstepTxt.textContent=st}
+    const h=Tour.on?'Playing. Scroll anytime to take over':jp>.96?'Scroll once more':'Scroll for the next step';if(h!==lastHint){lastHint=h;jstepHint.textContent=h}
+  }
+  const showStep=raw>0&&raw<1;setOnce(jstepEl,'opacity',showStep?'1':'0','jso');setOnce(jstepEl,'pointerEvents',showStep?'auto':'none','jsp');
   // horizontal projects
-  if(hsShift>0){const hr=hs.getBoundingClientRect(),hp=clamp(-hr.top/(hr.height-innerHeight));track.style.transform=`translateX(${-hp*hsShift}px)`}
-  PrismFX();
+  if(hsShift>0){const hTop=L.hs.top-y;if(hTop<vh&&hTop+L.hs.h>0){const hp=clamp(-hTop/(L.hs.h-vh));track.style.transform=`translate3d(${(-hp*hsShift).toFixed(1)}px,0,0)`}}
+  PrismFX(prTop,L.pr.h);
   // 3D hero
-  if(heroAPI){const hero3dVisible=jr.bottom>0;heroAPI.update(now,jp,nmx,nmy,hero3dVisible)}
-  requestAnimationFrame(tick);
+  if(heroAPI)heroAPI.update(now,jp,nmx,nmy,jTop+L.j.h>0);
+requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
 
@@ -1040,7 +1055,7 @@ function buildHero(){
   const canvas=document.getElementById('gl');
   const renderer=new T.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
   const lowPower=innerWidth<800;
-  const coarse=matchMedia('(pointer:coarse)').matches;renderer.setPixelRatio(Math.min(devicePixelRatio,lowPower?1.25:coarse?1.5:1.75));renderer.setSize(innerWidth,innerHeight,false);
+  const coarse=matchMedia('(pointer:coarse)').matches;renderer.setPixelRatio(Math.min(devicePixelRatio,lowPower?1.25:1.5));renderer.setSize(innerWidth,innerHeight,false);
   renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
   const scene=new T.Scene();scene.background=new T.Color(0x04050b);scene.fog=new T.FogExp2(0x04050b,.035);
   const cam=new T.PerspectiveCamera(36,innerWidth/innerHeight,.03,120);
@@ -1110,7 +1125,7 @@ function buildHero(){
   const tmp={p:new T.Vector3(),t:new T.Vector3()};
   camFor(0,tmp);camP.copy(tmp.p).add(V(0,3,6));camT.copy(tmp.t);
   function update(now,c,nx,ny,visible){
-    canvas.style.visibility=visible?'visible':'hidden';
+    if(canvas.__v!==visible){canvas.__v=visible;canvas.style.visibility=visible?'visible':'hidden'}
     if(!visible||!active)return;
     const t=now/1000;
     intro+=((document.body.classList.contains('ready')?1:0)-intro)*.025;
