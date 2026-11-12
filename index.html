@@ -501,6 +501,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
     <button class="tbtn" data-ladd="prism">+ Prism</button>
     <button class="tbtn" id="lRot" disabled>Rotate</button>
     <button class="tbtn" id="lDel" disabled>Remove</button>
+    <button class="tbtn" id="lDesel" disabled>Deselect</button>
     <button class="tbtn" id="lReset">Reset</button>
     <button class="tbtn" data-llam="w" aria-pressed="true"><span class="sw" style="background:#fff"></span>White</button>
     <button class="tbtn" data-llam="650" aria-pressed="false"><span class="sw" style="background:#ff2a00"></span>650 nm</button>
@@ -510,7 +511,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
   <div class="walkpad"><button data-walk="f" aria-label="Walk forward">↑</button><div style="display:flex;gap:8px"><button data-walk="l" aria-label="Turn left">↺</button><button data-walk="r" aria-label="Turn right">↻</button></div><button data-walk="b" aria-label="Walk back">↓</button></div>
   <div class="lab-tip" id="labTip">
     <h3>Welcome to the bench</h3>
-    <p><span class="fine">W A S D or arrow keys to walk. Drag to look around. Drag a mirror to move it, click it to turn it. Q and E also rotate.</span><span class="touch">Use the arrow buttons to walk and turn. Drag to look around. Drag a mirror to move it, tap it to turn it.</span></p>
+    <p><span class="fine">W A S D or arrow keys to walk. Drag to look around. Drag a mirror to move it, click it to turn it. Q and E also rotate. Click empty space or press Esc to deselect.</span><span class="touch">Use the arrow buttons to walk and turn. Drag to look around. Drag a mirror to move it, tap it to turn it. Tap empty space to deselect.</span></p>
     <button class="btn prime" id="labGo">Start</button>
   </div>
 </div>
@@ -1138,8 +1139,8 @@ function buildLab(){
   const keys=new Set();const walkBtns=new Set();
   const ray=new T.Raycaster(),ndc=new T.Vector2(),plane=new T.Plane(new T.Vector3(0,1,0),-BH),hit=new T.Vector3();
   let mode=null,downX=0,downY=0,moved=false,lx=0,ly=0,grabOff={x:0,y:0};
-  const rotBtn=document.getElementById('lRot'),delBtn=document.getElementById('lDel');
-  function select(p){sel=p;parts.forEach(place);rotBtn.disabled=delBtn.disabled=!p}
+  const rotBtn=document.getElementById('lRot'),delBtn=document.getElementById('lDel'),deselBtn=document.getElementById('lDesel');
+  function select(p){sel=p;parts.forEach(place);rotBtn.disabled=delBtn.disabled=deselBtn.disabled=!p}
   function pick(e){const r=canvas.getBoundingClientRect();ndc.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(ndc,cam);
     const hs=ray.intersectObjects(partsG.children,true);if(!hs.length)return null;let o=hs[0].object;while(o&&!o.userData.part)o=o.parent;return o?o.userData.part:null}
   canvas.addEventListener('pointerdown',e=>{
@@ -1161,14 +1162,14 @@ function buildLab(){
   canvas.addEventListener('wheel',e=>{if(!sel)return;e.preventDefault();sel.a+=Math.sign(e.deltaY)*Math.PI/48;place(sel);rebuild()},{passive:false});
   addEventListener('keydown',e=>{if(!open)return;const k=e.key.toLowerCase();
     if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)){keys.add(k);e.preventDefault()}
-    if(k==='escape')closeLab();
+    if(k==='escape'){if(sel)select(null);else closeLab()}
     if(sel&&(k==='q'||k==='e')){sel.a+=(k==='e'?1:-1)*Math.PI/24;place(sel);rebuild()}
     if(sel&&(k==='delete'||k==='backspace')){removeSel()}
     if('1234'.includes(k)&&k.length===1)document.querySelectorAll('[data-llam]')[+k-1].click()});
   addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
   document.querySelectorAll('[data-walk]').forEach(b=>{const d=b.dataset.walk;b.addEventListener('pointerdown',()=>walkBtns.add(d));['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>walkBtns.delete(d)))});
   function removeSel(){parts=parts.filter(p=>p!==sel);syncParts();select(null);rebuild()}
-  rotBtn.onclick=()=>{if(sel){sel.a+=Math.PI/12;place(sel);rebuild()}};delBtn.onclick=removeSel;
+  rotBtn.onclick=()=>{if(sel){sel.a+=Math.PI/12;place(sel);rebuild()}};deselBtn.onclick=()=>{select(null);canvas.focus()};delBtn.onclick=removeSel;
   document.getElementById('lReset').onclick=()=>{defaults();syncParts();select(null);rebuild()};
   document.querySelectorAll('[data-ladd]').forEach(b=>b.onclick=()=>{
     const fw=new T.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
