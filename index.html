@@ -132,8 +132,6 @@ main{position:relative;z-index:1}
 .statement p{font-weight:500;font-size:clamp(32px,4.6vw,68px);line-height:1.08;letter-spacing:-.04em;margin:0;max-width:20ch}
 .intro-h{display:flex;align-items:center;gap:14px;font-size:clamp(20px,2vw,26px);font-weight:600;letter-spacing:-.02em;margin:0 0 32px;color:var(--ink)}
 .intro-h::before{content:"";width:44px;height:3px;border-radius:2px;background:var(--spectrum)}
-.statement .w{opacity:.14;transition:opacity .35s}
-.statement .w.on{opacity:1}
 section.why{padding:40px 0 160px}
 .why-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:40px}
 .why h2,.sec-h{font-weight:600;font-size:clamp(40px,5.4vw,80px);line-height:.95;letter-spacing:-.05em;margin:0}
@@ -672,10 +670,6 @@ const lightSecs=[...document.querySelectorAll('.light')];
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.15});
 document.querySelectorAll('[data-reveal],.join .sec-h').forEach(el=>io.observe(el));
 
-/* statement word reveal */
-const wordsEl=document.getElementById('words');
-wordsEl.innerHTML=wordsEl.textContent.split(' ').map(w=>`<span class="w">${w}</span>`).join(' ');
-const words=[...wordsEl.querySelectorAll('.w')];
 
 /* ======================================================================
    PROJECTS
@@ -1016,9 +1010,6 @@ function tick(now){
   railDot.style.top=(jp*173)+'px';
   const step=Math.min(5,Math.floor(jp*5)+1);jstepTxt.textContent=`Step ${step} of 5`;jbar.style.width=(jp*100)+'%';
   jstepHint.textContent=Tour.on?'Playing. Scroll anytime to take over':jp>.96?'Scroll once more':'Scroll for the next step';jstepEl.style.opacity=(raw>0&&raw<1)?1:0;jstepEl.style.pointerEvents=(raw>0&&raw<1)?'auto':'none';
-  // statement words
-  const wr=wordsEl.getBoundingClientRect(),wp=clamp((innerHeight*.85-wr.top)/(wr.height+innerHeight*.35));
-  words.forEach((w,i)=>w.classList.toggle('on',i/words.length<wp));
   // horizontal projects
   if(hsShift>0){const hr=hs.getBoundingClientRect(),hp=clamp(-hr.top/(hr.height-innerHeight));track.style.transform=`translateX(${-hp*hsShift}px)`}
   PrismFX();
