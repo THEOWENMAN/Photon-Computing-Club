@@ -1156,41 +1156,45 @@ function buildLab(){
   const canvas=document.getElementById('labc');
   const renderer=new T.WebGLRenderer({canvas,antialias:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<800?1.25:matchMedia('(pointer:coarse)').matches?1.5:1.75));
-  renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1;
-  const scene=new T.Scene();scene.background=new T.Color(0x05060c);scene.fog=new T.Fog(0x05060c,8,26);
+  renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
+  const scene=new T.Scene();scene.background=new T.Color(0x0b0d14);scene.fog=new T.Fog(0x0b0d14,12,34);
   const cam=new T.PerspectiveCamera(62,1,.03,80);cam.rotation.order='YXZ';
   const pm=new T.PMREMGenerator(renderer),envTex=pm.fromScene(new Addons.RoomEnvironment(),.04).texture;
-  scene.add(new T.HemisphereLight(0x8a96c8,0x0a0a10,.55));
-  const L1=new T.PointLight(0xdfe6ff,10,14);L1.position.set(-3,4.6,0);scene.add(L1);
-  const L2=new T.PointLight(0xdfe6ff,10,14);L2.position.set(3,4.6,0);scene.add(L2);
+  scene.add(new T.HemisphereLight(0xc4ccff,0x23252d,.9));
+  scene.add(new T.AmbientLight(0xffffff,.18));
+  const L1=new T.PointLight(0xe6ebff,25,22,1.6);L1.position.set(-3,4.8,0);scene.add(L1);
+  const L2=new T.PointLight(0xe6ebff,25,22,1.6);L2.position.set(3,4.8,0);scene.add(L2);
+  // a soft spotlight over the bench so the optics read clearly
+  const spot=new T.SpotLight(0xffffff,40,16,.75,.7,1.4);spot.position.set(0,5.2,1.2);spot.target.position.set(0,.9,0);scene.add(spot,spot.target);
+  const fill=new T.DirectionalLight(0xdfe4ff,.35);fill.position.set(-4,6,8);scene.add(fill);
   // room
-  const floor=new T.Mesh(new T.PlaneGeometry(26,26),new T.MeshStandardMaterial({color:0x101219,roughness:.95,metalness:0}));floor.rotation.x=-Math.PI/2;scene.add(floor);
-  const grid=new T.GridHelper(26,26,0x1a1e2b,0x141823);grid.position.y=.004;grid.material.transparent=true;grid.material.opacity=.6;grid.material.depthWrite=false;scene.add(grid);
-  const walls=new T.Mesh(new T.BoxGeometry(26,6,26),new T.MeshStandardMaterial({color:0x0b0d14,roughness:.9,side:T.BackSide}));walls.position.y=3;scene.add(walls);
+  const floor=new T.Mesh(new T.PlaneGeometry(26,26),new T.MeshStandardMaterial({color:0x1d2029,roughness:.95,metalness:0}));floor.rotation.x=-Math.PI/2;scene.add(floor);
+  const grid=new T.GridHelper(26,26,0x2c313d,0x262a35);grid.position.y=.004;grid.material.transparent=true;grid.material.opacity=.6;grid.material.depthWrite=false;scene.add(grid);
+  const walls=new T.Mesh(new T.BoxGeometry(26,6,26),new T.MeshStandardMaterial({color:0x171a22,roughness:.95,side:T.BackSide}));walls.position.y=2.95;scene.add(walls);
   const stripM=new T.MeshBasicMaterial({color:new T.Color(2.2,2.3,2.6),toneMapped:false});
   for(const x of[-3,3]){const s=new T.Mesh(new T.BoxGeometry(.12,.04,7),stripM);s.position.set(x,5.6,0);scene.add(s)}
   // wall boards
   function board(lines,w,h,pos,rotY){const c=document.createElement('canvas');c.width=1024;c.height=Math.round(1024*h/w);const g=c.getContext('2d');
-    g.fillStyle='#141823';g.fillRect(0,0,c.width,c.height);g.fillStyle='#b9c0d4';
+    g.fillStyle='#1d2230';g.fillRect(0,0,c.width,c.height);g.fillStyle='#d4d9e6';
     lines.forEach(([txt,sz,y,font])=>{g.font=`${font||600} ${sz}px Geist, sans-serif`;g.fillText(txt,60,y)});
     const t=new T.CanvasTexture(c);t.colorSpace=T.SRGBColorSpace;const m=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshStandardMaterial({map:t,roughness:.9,envMapIntensity:.2}));m.position.copy(pos);m.rotation.y=rotY;scene.add(m)}
   board([['Photon Computing Club',78,140],['Optics lab',52,220,400],['Every beam in this room is simulated.',38,470,400],['Reflection, refraction and dispersion, in code.',38,530,400]],5,3,new T.Vector3(0,2.7,-12.95),0);
   board([['n₁ sin θ₁ = n₂ sin θ₂',70,170,500],['E = hc / λ',70,300,500],['I = I₁ + I₂ + 2√(I₁I₂) cos Δφ',56,430,500],['50:50 splitter → half reflected,',40,560,400],['half transmitted',40,615,400]],4.4,3,new T.Vector3(-12.95,2.6,0),Math.PI/2);
   // optical table
   const TW=8,TD=4,TOP=.9,BH=1.06;
-  const hc=document.createElement('canvas');hc.width=hc.height=256;const hg=hc.getContext('2d');hg.fillStyle='#17191e';hg.fillRect(0,0,256,256);
-  hg.fillStyle='#07080a';for(let y=16;y<256;y+=32)for(let x=16;x<256;x+=32){hg.beginPath();hg.arc(x,y,5,0,7);hg.fill()}
+  const hc=document.createElement('canvas');hc.width=hc.height=256;const hg=hc.getContext('2d');hg.fillStyle='#2a2d34';hg.fillRect(0,0,256,256);
+  hg.fillStyle='#111216';for(let y=16;y<256;y+=32)for(let x=16;x<256;x+=32){hg.beginPath();hg.arc(x,y,5,0,7);hg.fill()}
   const ht=new T.CanvasTexture(hc);ht.wrapS=ht.wrapT=T.RepeatWrapping;ht.repeat.set(TW*4,TD*4);ht.anisotropy=8;ht.colorSpace=T.SRGBColorSpace;
-  const table=new T.Mesh(new T.BoxGeometry(TW+.4,.16,TD+.4),[0,1,2,3,4,5].map(i=>i===2?new T.MeshStandardMaterial({map:ht,metalness:.2,roughness:.7}):new T.MeshStandardMaterial({color:0x22252b,metalness:.3,roughness:.6})));
+  const table=new T.Mesh(new T.BoxGeometry(TW+.4,.16,TD+.4),[0,1,2,3,4,5].map(i=>i===2?new T.MeshStandardMaterial({map:ht,metalness:.1,roughness:.75}):new T.MeshStandardMaterial({color:0x3a3e47,metalness:.2,roughness:.6})));
   table.position.y=TOP-.08;scene.add(table);
-  const legM=new T.MeshStandardMaterial({color:0x2a2e36,metalness:.3,roughness:.6});
+  const legM=new T.MeshStandardMaterial({color:0x454a55,metalness:.3,roughness:.6});
   for(const x of[-3.6,3.6])for(const z of[-1.6,1.6]){const l=new T.Mesh(new T.CylinderGeometry(.18,.22,TOP-.16,20),legM);l.position.set(x,(TOP-.16)/2,z);scene.add(l)}
 
   // optics
   const glow=glowTexture();
   const postM=new T.MeshStandardMaterial({color:0x9aa1ad,metalness:1,roughness:.3,envMap:envTex,envMapIntensity:.6});
   const mirM=new T.MeshStandardMaterial({color:0xcfd4dc,metalness:1,roughness:.12,envMap:envTex,envMapIntensity:.9});
-  const backM=new T.MeshStandardMaterial({color:0x22252c,metalness:.6,roughness:.4});
+  const backM=new T.MeshStandardMaterial({color:0x3a3f49,metalness:.4,roughness:.45});
   const bsM=new T.MeshPhysicalMaterial({color:0x7fc4e8,metalness:0,roughness:.1,transparent:true,opacity:.35,envMap:envTex,envMapIntensity:.6,depthWrite:false});
   const prM=new T.MeshPhysicalMaterial({color:0x8fa8d8,metalness:0,roughness:.08,transparent:true,opacity:.22,envMap:envTex,envMapIntensity:.5,side:T.DoubleSide,depthWrite:false});
   const ML=.6,PR=.3,DR=.12;
@@ -1220,12 +1224,12 @@ function buildLab(){
   function place(p){p.g.position.set(p.x,BH,p.y);p.g.rotation.y=p.type==='prism'?Math.PI/2-p.a:-p.a;p.g.userData.ring.material.opacity=p===sel?.3:0}
   // laser and detectors
   const laserG=new T.Group();
-  laserG.add(new T.Mesh(new T.BoxGeometry(.55,.14,.16),new T.MeshStandardMaterial({color:0x2b2f38,metalness:.6,roughness:.3})));
+  laserG.add(new T.Mesh(new T.BoxGeometry(.55,.14,.16),new T.MeshStandardMaterial({color:0x4a505c,metalness:.5,roughness:.35})));
   const aperM=new T.MeshBasicMaterial({color:0xffffff,toneMapped:false});const aper=new T.Mesh(new T.CircleGeometry(.03,20),aperM);aper.rotation.y=Math.PI/2;aper.position.x=.276;laserG.add(aper);
   const lpost=new T.Mesh(new T.CylinderGeometry(.04,.04,BH-TOP,12),postM);lpost.position.y=-(BH-TOP)/2;laserG.add(lpost);
   laserG.position.set(src.x-.28,BH,src.y);scene.add(laserG);
   const detMs=dets.map(d=>{const g=new T.Group();
-    const body=new T.Mesh(new T.BoxGeometry(.2,.2,.12),new T.MeshStandardMaterial({color:0x1a1d24,metalness:.5,roughness:.4}));g.add(body);
+    const body=new T.Mesh(new T.BoxGeometry(.2,.2,.12),new T.MeshStandardMaterial({color:0x3b404b,metalness:.4,roughness:.45}));g.add(body);
     const faceM=new T.MeshBasicMaterial({color:0x222631,toneMapped:false});const face=new T.Mesh(new T.CircleGeometry(.07,24),faceM);face.position.z=.061;g.add(face);
     const halo=new T.Sprite(new T.SpriteMaterial({map:glow,color:0xffffff,blending:T.AdditiveBlending,depthWrite:false,transparent:true,opacity:0,toneMapped:false}));halo.scale.setScalar(.9);halo.position.z=.08;g.add(halo);
     const post=new T.Mesh(new T.CylinderGeometry(.03,.03,BH-TOP,12),postM);post.position.y=-(BH-TOP)/2;g.add(post);
@@ -1256,7 +1260,7 @@ function buildLab(){
   syncParts();rebuild();
 
   const composer=new Addons.EffectComposer(renderer);composer.addPass(new Addons.RenderPass(scene,cam));
-  const bloom=new Addons.UnrealBloomPass(new T.Vector2(innerWidth,innerHeight),.6,.4,.3);composer.addPass(bloom);composer.addPass(new Addons.OutputPass());
+  const bloom=new Addons.UnrealBloomPass(new T.Vector2(innerWidth,innerHeight),.55,.4,.6);composer.addPass(bloom);composer.addPass(new Addons.OutputPass());
   function resize(){renderer.setSize(innerWidth,innerHeight,false);composer.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}
   addEventListener('resize',resize);resize();
 
