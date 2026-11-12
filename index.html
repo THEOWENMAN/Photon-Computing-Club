@@ -125,12 +125,13 @@ main{position:relative;z-index:1}
 .prismsec + .statement{margin-top:-140vh;padding-top:calc(180px + 40vh);position:relative;z-index:1}
 .pstick{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
 #prismc{position:absolute;inset:0;width:100%;height:100%;display:block}
-.prism-cap{position:absolute;left:0;right:0;top:calc(50% + min(15vw,15vh));text-align:center;margin:0;font-weight:600;font-size:clamp(30px,4.4vw,64px);line-height:1;letter-spacing:-.045em;opacity:0;padding:0 24px}
 
 /* ========== LIGHT SECTIONS ========== */
 .light{background:var(--mist);color:var(--ink)}
 .statement{padding:180px 0 140px}
 .statement p{font-weight:500;font-size:clamp(32px,4.6vw,68px);line-height:1.08;letter-spacing:-.04em;margin:0;max-width:20ch}
+.intro-h{display:flex;align-items:center;gap:14px;font-size:clamp(20px,2vw,26px);font-weight:600;letter-spacing:-.02em;margin:0 0 32px;color:var(--ink)}
+.intro-h::before{content:"";width:44px;height:3px;border-radius:2px;background:var(--spectrum)}
 .statement .w{opacity:.14;transition:opacity .35s}
 .statement .w.on{opacity:1}
 section.why{padding:40px 0 160px}
@@ -372,10 +373,10 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
 
 <!-- ================= STATEMENT ================= -->
 <section class="prismsec" id="prismsec" aria-label="White light splitting into a rainbow">
-  <div class="pstick"><canvas id="prismc" aria-hidden="true"></canvas><p class="prism-cap" id="prismCap">White light in.<br>Every colour out.</p></div>
+  <div class="pstick"><canvas id="prismc" aria-hidden="true"></canvas></div>
 </section>
 <section class="light statement">
-  <div class="wrap"><p id="words">Today's chips spend much of their energy just moving data around. Light carries it without the heat, sends many colours down one path at once, and does math as it travels. That's why we model it, simulate it and design with it.</p></div>
+  <div class="wrap"><h2 class="intro-h">Introduction</h2><p id="words">Today's chips spend much of their energy just moving data around. Light carries it without the heat, sends many colours down one path at once, and does math as it travels. That's why we model it, simulate it and design with it.</p></div>
 </section>
 
 <!-- ================= WHY ================= -->
@@ -949,7 +950,7 @@ const Snap=(()=>{
 
 /* ---------- prism transition: beam, rainbow, then a flood of white ---------- */
 const PrismFX=(()=>{
-  const sec=document.getElementById('prismsec'),cv=document.getElementById('prismc'),ctx=cv.getContext('2d'),cap=document.getElementById('prismCap');
+  const sec=document.getElementById('prismsec'),cv=document.getElementById('prismc'),ctx=cv.getContext('2d');
   let W=0,H=0,dpr=1,pp=0;
   function size(){dpr=Math.min(devicePixelRatio||1,2);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr}
   new ResizeObserver(size).observe(cv);size();
@@ -987,8 +988,6 @@ const PrismFX=(()=>{
       const lg=ctx.createLinearGradient(edge-60,0,edge+20,0);lg.addColorStop(0,'rgba(255,255,255,0)');lg.addColorStop(1,'rgba(255,255,255,.85)');
       ctx.fillStyle=lg;ctx.fillRect(edge-60,0,80,H);
     }
-    cap.style.opacity=clamp((p-.28)/.12)*(1-clamp((p-.62)/.1));
-    cap.style.color='#EDEFF5';
   }
   return function(){
     const r=sec.getBoundingClientRect();if(r.bottom<0||r.top>innerHeight)return;
