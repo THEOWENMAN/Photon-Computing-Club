@@ -120,6 +120,12 @@ main{position:relative;z-index:1}
 .jstep i{display:block;height:100%;width:0;background:var(--spectrum)}
 .rail i{position:absolute;left:-3px;top:0;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 12px #fff}
 
+/* ========== PRISM TRANSITION ========== */
+.prismsec{height:230vh;position:relative;background:var(--void);z-index:1}
+.pstick{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
+#prismc{position:absolute;inset:0;width:100%;height:100%;display:block}
+.prism-cap{position:absolute;left:0;right:0;top:calc(50% + min(15vw,15vh));text-align:center;margin:0;font-weight:600;font-size:clamp(30px,4.4vw,64px);line-height:1;letter-spacing:-.045em;opacity:0;padding:0 24px}
+
 /* ========== LIGHT SECTIONS ========== */
 .light{background:var(--mist);color:var(--ink)}
 .statement{padding:180px 0 140px}
@@ -347,7 +353,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
       </div>
     </div>
   </div>
-  <div class="scrollcue"><button class="tourbtn" id="scrollCue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><span>Play the photon tour</span></button><span class="or">or scroll</span></div>
+  <div class="scrollcue"><button class="tourbtn" id="scrollCue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><span>Play the photon tour</span></button><span class="or">or scroll one step at a time</span></div>
 </section>
 
 <!-- ================= JOURNEY ================= -->
@@ -364,6 +370,9 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
 </section>
 
 <!-- ================= STATEMENT ================= -->
+<section class="prismsec" id="prismsec" aria-label="White light splitting into a rainbow">
+  <div class="pstick"><canvas id="prismc" aria-hidden="true"></canvas><p class="prism-cap" id="prismCap">White light in.<br>Every colour out.</p></div>
+</section>
 <section class="light statement">
   <div class="wrap"><p id="words">Today's chips spend much of their energy just moving data around. Light carries it without the heat, sends many colours down one path at once, and does math as it travels. That's why we model it, simulate it and design with it.</p></div>
 </section>
@@ -835,6 +844,7 @@ const Smooth=(()=>{
   const blocked=()=>document.body.classList.contains('loading')||document.body.style.overflow==='hidden'||document.getElementById('drawer').classList.contains('open');
   addEventListener('wheel',e=>{
     if(blocked()||e.ctrlKey)return;
+    if(Snap.wheel(e)){active=false;return}
     Tour.stop();
     if(reduced||!fine)return;
     if(Math.abs(e.deltaX)>Math.abs(e.deltaY))return;
@@ -850,7 +860,7 @@ const Smooth=(()=>{
     if(active){cur+=(target-cur)*.085;if(Math.abs(target-cur)<.4){cur=target;active=false}scrollTo(0,cur)}
     requestAnimationFrame(step);
   })();
-  return{to(y){if(reduced){scrollTo(0,y);return}Tour.stop();cur=scrollY;target=clamp(y,0,maxY());active=true},stop(){active=false}};
+  return{to(y){if(reduced){scrollTo(0,y);return}Tour.stop();if(Snap.busy)return;cur=scrollY;target=clamp(y,0,maxY());active=true},stop(){active=false}};
 })();
 
 /* ---------- guided tour: glides through each step of the photon journey ---------- */
@@ -859,8 +869,7 @@ const Tour=(()=>{
   const jplayIcon=document.getElementById('jplayIcon'),jplay=document.getElementById('jplay');
   const PLAY='M8 5v14l11-7z',PAUSE='M7 5h4v14H7zM13 5h4v14h-4z';
   function ui(){jplayIcon.setAttribute('d',on?PAUSE:PLAY);jplay.setAttribute('aria-label',on?'Pause the tour':'Play the tour')}
-  function stops(){const top=journey.getBoundingClientRect().top+scrollY,len=journey.offsetHeight-innerHeight;
-    return[0,1,2,3,4].map(i=>top+len*(i+.5)/5).concat([top+len+innerHeight*.35])}
+  function stops(){return Snap.points().slice(1)}
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   function glide(y,ms,my){return new Promise(res=>{const y0=scrollY,t0=performance.now();
     (function f(now){if(my!==token)return res(false);const k=clamp((now-t0)/ms);scrollTo(0,y0+(y-y0)*ease(k));k<1?requestAnimationFrame(f):res(true)})(t0)})}
@@ -869,7 +878,7 @@ const Tour=(()=>{
     const S=stops();let i=S.findIndex(y=>y>scrollY+20);if(i<0)i=0;
     for(;i<S.length;i++){
       const dist=Math.abs(S[i]-scrollY);
-      if(!await glide(S[i],reduced?1:clamp(dist*1.4,1400,3200),my))return;
+      if(!await glide(S[i],reduced?1:i===S.length-1?2600:clamp(dist*1.4,1400,3200),my))return;
       if(i<S.length-1){await sleep(2600);if(my!==token)return}
     }
     on=false;ui();
@@ -878,6 +887,107 @@ const Tour=(()=>{
   jplay.onclick=()=>on?stop():play();
   document.getElementById('scrollCue').onclick=play;
   return{play,stop,get on(){return on}};
+})();
+
+/* ---------- step snapping: one scroll = one step, from the hero to the end of the prism ---------- */
+const Snap=(()=>{
+  const prismSec=document.getElementById('prismsec');
+  let busy=false,lastWheel=0,lastDone=0,token=0,ty=null,tdy=0;
+  const blocked=()=>document.body.classList.contains('loading')||document.body.style.overflow==='hidden'||document.getElementById('drawer').classList.contains('open');
+  function points(){
+    const top=journey.getBoundingClientRect().top+scrollY,len=journey.offsetHeight-innerHeight;
+    const pt=prismSec.getBoundingClientRect().top+scrollY,pl=prismSec.offsetHeight-innerHeight;
+    return[0,...[0,1,2,3,4].map(i=>top+len*(i+.5)/5),pt+pl];
+  }
+  function inZone(dir){const P=points(),end=P[P.length-1],y=scrollY;return y<end-2||(dir<0&&y<=end+6)}
+  function target(dir){const P=points(),y=scrollY;
+    if(dir>0)return P.find(p=>p>y+6);
+    for(let i=P.length-1;i>=0;i--)if(P[i]<y-6)return P[i];return 0}
+  function go(y){
+    if(y==null)return;Tour.stop();Smooth.stop();
+    const P=points(),end=P[P.length-1],last=P[P.length-2];
+    const prismLeg=Math.max(y,scrollY)>=end-6&&Math.min(y,scrollY)>=last-6;
+    const ms=reduced?1:prismLeg?2600:1150;
+    busy=true;const my=++token,y0=scrollY,t0=performance.now();
+    (function f(now){
+      if(my!==token){busy=false;return}
+      const k=clamp((now-t0)/ms),e=prismLeg?k*k*(3-2*k):ease(k);
+      scrollTo(0,y0+(y-y0)*e);
+      if(k<1)requestAnimationFrame(f);else{busy=false;lastDone=performance.now()}
+    })(t0);
+  }
+  function wheel(e){
+    if(Math.abs(e.deltaX)>Math.abs(e.deltaY))return false;
+    const dir=Math.sign(e.deltaY);if(!dir)return false;
+    if(!busy&&!inZone(dir))return false;
+    e.preventDefault();
+    const now=performance.now(),gap=now-lastWheel;lastWheel=now;
+    // one gesture = one step: wait for the wheel (or trackpad momentum) to pause
+    if(busy||gap<200||now-lastDone<120)return true;
+    go(target(dir));return true;
+  }
+  addEventListener('keydown',e=>{
+    if(blocked()||e.target.closest('input,textarea,select'))return;
+    const down=['ArrowDown','PageDown'].includes(e.key)||(e.key===' '&&!e.shiftKey&&!e.target.closest('button,a'));
+    const up=['ArrowUp','PageUp'].includes(e.key)||(e.key===' '&&e.shiftKey);
+    if(!down&&!up)return;const dir=down?1:-1;
+    if(!inZone(dir))return;e.preventDefault();if(!busy)go(target(dir));
+  });
+  addEventListener('touchstart',e=>{ty=e.touches[0].clientY;tdy=0},{passive:true});
+  addEventListener('touchmove',e=>{
+    if(ty==null||blocked())return;tdy=ty-e.touches[0].clientY;
+    if(busy||inZone(Math.sign(tdy)||1))e.preventDefault();
+  },{passive:false});
+  addEventListener('touchend',()=>{
+    if(ty==null)return;const d=tdy;ty=null;
+    if(blocked()||Math.abs(d)<30||busy)return;const dir=Math.sign(d);
+    if(inZone(dir))go(target(dir));
+  });
+  return{wheel,points,go,get busy(){return busy}};
+})();
+
+/* ---------- prism transition: beam, rainbow, then a flood of white ---------- */
+const PrismFX=(()=>{
+  const sec=document.getElementById('prismsec'),cv=document.getElementById('prismc'),ctx=cv.getContext('2d'),cap=document.getElementById('prismCap');
+  let W=0,H=0,dpr=1,pp=0;
+  function size(){dpr=Math.min(devicePixelRatio||1,2);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr}
+  new ResizeObserver(size).observe(cv);size();
+  function line(x1,y1,x2,y2,c,I){
+    [[16,.08],[5,.3],[1.6,.95]].forEach(([w,a])=>{ctx.strokeStyle=`rgba(${c},${a*I})`;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()});
+  }
+  function draw(p){
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#04050B';ctx.fillRect(0,0,W,H);
+    const cx=W/2,cy=H/2,R=Math.min(W,H)*.11,len=Math.hypot(W,H);
+    const a1=clamp(p/.26),a2=clamp((p-.24)/.3),a3=clamp((p-.5)/.28),a4=clamp((p-.74)/.26);
+    // prism
+    const pts=[0,1,2].map(k=>{const t=-Math.PI/2+k*2*Math.PI/3;return[cx+R*Math.cos(t),cy+R*.15+R*Math.sin(t)]});
+    ctx.globalAlpha=clamp(p/.12);ctx.beginPath();pts.forEach((v,i)=>ctx[i?'lineTo':'moveTo'](...v));ctx.closePath();
+    ctx.fillStyle='rgba(170,195,255,.07)';ctx.fill();ctx.strokeStyle='rgba(225,233,255,.85)';ctx.lineWidth=1.5;ctx.stroke();ctx.globalAlpha=1;
+    ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
+    const bx=cx-R*.5;line(0,cy,bx*easeOut(a1),cy,[255,255,255],1);
+    if(a2>0){
+      const ox=cx+R*.45,oy=cy+R*.1,n=SPECTRUM.length,spread=.14+easeOut(a2)*.6+ease(a3)*1.1,w2=spread/(n-1),L=len*easeOut(a2);
+      SPECTRUM.forEach((l,i)=>{const ang=.12-spread/2+w2*i,c=lamRGB(l);
+        line(ox,oy,ox+Math.cos(ang)*L,oy+Math.sin(ang)*L,c,1);
+        if(a3>0){ctx.fillStyle=`rgba(${c},${.65*a3})`;ctx.beginPath();ctx.moveTo(ox,oy);
+          ctx.lineTo(ox+Math.cos(ang-w2*.55)*len,oy+Math.sin(ang-w2*.55)*len);ctx.lineTo(ox+Math.cos(ang+w2*.55)*len,oy+Math.sin(ang+w2*.55)*len);ctx.closePath();ctx.fill()}});
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,R*(1.2+a3*3));g.addColorStop(0,`rgba(255,255,255,${.55*a2})`);g.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    }
+    ctx.globalCompositeOperation='source-over';
+    if(a4>0){
+      // the light floods the screen and settles into the page's white
+      const r=ease(a4)*len*1.1+1,g2=ctx.createRadialGradient(cx,cy,0,cx,cy,r);g2.addColorStop(0,'#FFFFFF');g2.addColorStop(.55,'#F1F2F5');g2.addColorStop(.86,'#F1F2F5');g2.addColorStop(.93,'rgba(255,255,255,.55)');g2.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g2;ctx.fillRect(0,0,W,H);
+      if(a4>.96){ctx.fillRect(0,0,W,H)}
+    }
+    cap.style.opacity=clamp((p-.3)/.12)*(1-clamp((p-.66)/.1));
+    cap.style.color='#EDEFF5';
+  }
+  return function(){
+    const r=sec.getBoundingClientRect();if(r.bottom<0||r.top>innerHeight)return;
+    const raw=clamp(-r.top/(r.height-innerHeight));pp+=(raw-pp)*(reduced?1:.25);if(Math.abs(raw-pp)<.001)pp=raw;
+    draw(pp);
+  };
 })();
 
 /* in-page links glide too */
@@ -898,12 +1008,13 @@ function tick(now){
     c.style.opacity=o;c.style.transform=`translateY(calc(-50% + ${d*-40}px))`});
   railDot.style.top=(jp*173)+'px';
   const step=Math.min(5,Math.floor(jp*5)+1);jstepTxt.textContent=`Step ${step} of 5`;jbar.style.width=(jp*100)+'%';
-  jstepHint.textContent=Tour.on?'Playing. Scroll anytime to take over':jp>.96?'Keep going: why it matters':'Scroll, or press play';jstepEl.style.opacity=(raw>0&&raw<1)?1:0;jstepEl.style.pointerEvents=(raw>0&&raw<1)?'auto':'none';
+  jstepHint.textContent=Tour.on?'Playing. Scroll anytime to take over':jp>.96?'Scroll once more':'Scroll for the next step';jstepEl.style.opacity=(raw>0&&raw<1)?1:0;jstepEl.style.pointerEvents=(raw>0&&raw<1)?'auto':'none';
   // statement words
   const wr=wordsEl.getBoundingClientRect(),wp=clamp((innerHeight*.85-wr.top)/(wr.height+innerHeight*.35));
   words.forEach((w,i)=>w.classList.toggle('on',i/words.length<wp));
   // horizontal projects
   if(hsShift>0){const hr=hs.getBoundingClientRect(),hp=clamp(-hr.top/(hr.height-innerHeight));track.style.transform=`translateX(${-hp*hsShift}px)`}
+  PrismFX();
   // 3D hero
   if(heroAPI){const hero3dVisible=jr.bottom>0;heroAPI.update(now,jp,nmx,nmy,hero3dVisible)}
   requestAnimationFrame(tick);
